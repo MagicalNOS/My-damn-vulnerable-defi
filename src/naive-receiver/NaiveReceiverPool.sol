@@ -44,6 +44,7 @@ contract NaiveReceiverPool is Multicall, IERC3156FlashLender {
         external
         returns (bool)
     {
+        // msg.sender == address(receiver) is nessesary
         if (token != address(weth)) revert UnsupportedCurrency();
 
         // Transfer WETH and handle control to receiver

@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/interfaces/IERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 import {BitMaps} from "@openzeppelin/contracts/utils/structs/BitMaps.sol";
 
+
 struct Distribution {
     uint256 remaining;
     uint256 nextBatchNumber;
@@ -78,6 +79,12 @@ contract TheRewarderDistributor {
     }
 
     // Allow claiming rewards of multiple tokens in a single transaction
+    // attack flow:
+    // 1. construct a array [claim1, claim1, claim1, claim1, ..... , claim2]
+    // 2. claim1 can bypass the first if condition `_setClaimed()` function.
+    // 3. duplicated claim1 can bypass the merkle proof verification duplicately
+    // 4. claim2 is a valid claim to bypass the last if condition `_setClaimed()` function.
+
     function claimRewards(Claim[] memory inputClaims, IERC20[] memory inputTokens) external {
         Claim memory inputClaim;
         IERC20 token;
@@ -96,9 +103,12 @@ contract TheRewarderDistributor {
                 }
 
                 token = inputTokens[inputClaim.tokenIndex];
+
+                // the set can prevent user claiming the airdrop duplicately
                 bitsSet = 1 << bitPosition; // set bit at given position
                 amount = inputClaim.amount;
             } else {
+                // ? why there not check _setClaimed here?
                 bitsSet = bitsSet | 1 << bitPosition;
                 amount += inputClaim.amount;
             }
@@ -119,6 +129,7 @@ contract TheRewarderDistributor {
 
     function _setClaimed(IERC20 token, uint256 amount, uint256 wordPosition, uint256 newBits) private returns (bool) {
         uint256 currentWord = distributions[token].claims[msg.sender][wordPosition];
+        // if exisited should return false
         if ((currentWord & newBits) != 0) return false;
 
         // update state

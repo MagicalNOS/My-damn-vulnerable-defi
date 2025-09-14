@@ -24,7 +24,10 @@ contract TrusterLenderPool is ReentrancyGuard {
     {
         uint256 balanceBefore = token.balanceOf(address(this));
 
+        // execution contract is different from borrower
         token.transfer(borrower, amount);
+        
+        // may i can call approve function of token contract
         target.functionCall(data);
 
         if (token.balanceOf(address(this)) < balanceBefore) {

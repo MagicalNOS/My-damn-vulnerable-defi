@@ -48,6 +48,7 @@ contract BasicForwarder is EIP712 {
 
         if (IHasTrustedForwarder(request.target).trustedForwarder() != address(this)) revert InvalidTarget();
 
+        // this protect the attacker manipulate address combined with msg.data
         address signer = ECDSA.recover(_hashTypedData(getDataHash(request)), signature);
         if (signer != request.from) revert InvalidSigner();
     }
@@ -56,10 +57,10 @@ contract BasicForwarder is EIP712 {
         _checkRequest(request, signature);
 
         nonces[request.from]++;
-
         uint256 gasLeft;
         uint256 value = request.value; // in wei
         address target = request.target;
+
         bytes memory payload = abi.encodePacked(request.data, request.from);
         uint256 forwardGas = request.gas;
         assembly {

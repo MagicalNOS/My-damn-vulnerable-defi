@@ -36,7 +36,9 @@ contract SideEntranceLenderPool {
         uint256 balanceBefore = address(this).balance;
 
         IFlashLoanEtherReceiver(msg.sender).execute{value: amount}();
+        
 
+        // @audit-high this a big problem, user can use flashloan to fund to bypass this condition
         if (address(this).balance < balanceBefore) {
             revert RepayFailed();
         }

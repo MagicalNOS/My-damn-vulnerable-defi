@@ -20,6 +20,7 @@ contract UnstoppableVault is IERC3156FlashLender, ReentrancyGuard, Owned, ERC462
     uint256 public constant FEE_FACTOR = 0.05 ether;
     uint64 public constant GRACE_PERIOD = 30 days;
 
+    // @audit-info manipulate time is easy.
     uint64 public immutable end = uint64(block.timestamp) + GRACE_PERIOD;
 
     address public feeRecipient;
@@ -82,8 +83,8 @@ contract UnstoppableVault is IERC3156FlashLender, ReentrancyGuard, Owned, ERC462
         if (amount == 0) revert InvalidAmount(0); // fail early
         if (address(asset) != _token) revert UnsupportedCurrency(); // enforce ERC3156 requirement
         uint256 balanceBefore = totalAssets();
+        // Solved: use convertToAssets(totalSupply) > totalAssets()
         if (convertToShares(totalSupply) != balanceBefore) revert InvalidBalance(); // enforce ERC4626 requirement
-
         // transfer tokens out + execute callback on receiver
         ERC20(_token).safeTransfer(address(receiver), amount);
 

