@@ -91,6 +91,9 @@ contract TheRewarderDistributor {
         uint256 bitsSet; // accumulator
         uint256 amount;
 
+        // @audit-high user must claim the same batch airdrop in one times
+        // beacuse the same batch has same batchNumber, the first you claim you will mark it claimed
+        // the second time you claim the same batchNumber, it will revert.
         for (uint256 i = 0; i < inputClaims.length; i++) {
             inputClaim = inputClaims[i];
 
@@ -108,7 +111,7 @@ contract TheRewarderDistributor {
                 bitsSet = 1 << bitPosition; // set bit at given position
                 amount = inputClaim.amount;
             } else {
-                // ? why there not check _setClaimed here?
+                // @audit-high this lack of check like _setClaimed(), it will cause user can claim the airdrop duplicately
                 bitsSet = bitsSet | 1 << bitPosition;
                 amount += inputClaim.amount;
             }

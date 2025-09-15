@@ -204,25 +204,6 @@ contract TheRewarderChallenge is Test {
         weth.transfer(recovery, weth.balanceOf(player));
     }
 
-    function mergeClaims(Claim[] memory array1, Claim[] memory array2) internal pure returns (Claim[] memory result) {
-        uint256 len1 = array1.length;
-        uint256 len2 = array2.length;
-        result = new Claim[](len1 + len2);
-
-        for (uint256 i = 0; i < len1;) {
-            result[i] = array1[i];
-            unchecked {
-                ++i;
-            }
-        }
-
-        for (uint256 i = 0; i < len2;) {
-            result[len1 + i] = array2[i];
-            unchecked {
-                ++i;
-            }
-        }
-    }
     /**
      * CHECKS SUCCESS CONDITIONS - DO NOT TOUCH
      */

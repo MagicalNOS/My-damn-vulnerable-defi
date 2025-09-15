@@ -50,6 +50,7 @@ contract SimpleGovernance is ISimpleGovernance {
         emit ActionQueued(actionId, msg.sender);
     }
 
+    // ? why there is payable here?
     function executeAction(uint256 actionId) external payable returns (bytes memory) {
         if (!_canBeExecuted(actionId)) {
             revert CannotExecute(actionId);
@@ -60,6 +61,7 @@ contract SimpleGovernance is ISimpleGovernance {
 
         emit ActionExecuted(actionId, msg.sender);
 
+        // ? it looks like wired why we pass value here, DVT is ERC20 token not ETH
         return actionToExecute.target.functionCallWithValue(actionToExecute.data, actionToExecute.value);
     }
 
@@ -97,6 +99,8 @@ contract SimpleGovernance is ISimpleGovernance {
         return actionToExecute.executedAt == 0 && timeDelta >= ACTION_DELAY_IN_SECONDS;
     }
 
+    // @audit-high `getVotes()` will return the current votes, 
+    // so user can use flashloan to borrow a large amount of token to get vote power
     function _hasEnoughVotes(address who) private view returns (bool) {
         uint256 balance = _votingToken.getVotes(who);
         uint256 halfTotalSupply = _votingToken.totalSupply() / 2;

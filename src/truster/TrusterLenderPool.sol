@@ -28,6 +28,7 @@ contract TrusterLenderPool is ReentrancyGuard {
         token.transfer(borrower, amount);
         
         // may i can call approve function of token contract
+        // @audit-high the call should be executed by the borrower instead of the flashloan contract 
         target.functionCall(data);
 
         if (token.balanceOf(address(this)) < balanceBefore) {
