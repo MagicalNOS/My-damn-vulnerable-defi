@@ -81,7 +81,7 @@ contract TrustfulOracle is AccessControlEnumerable {
         _pricesBySource[source][symbol] = newPrice;
         emit UpdatedPrice(source, symbol, oldPrice, newPrice);
     }
-
+    
     function _computeMedianPrice(string memory symbol) private view returns (uint256) {
         uint256[] memory prices = getAllPricesForSymbol(symbol);
         LibSort.insertionSort(prices);

