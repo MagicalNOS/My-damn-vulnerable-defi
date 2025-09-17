@@ -54,6 +54,7 @@ contract PuppetV2Pool {
 
     // Fetch the price from Uniswap v2 using the official libraries
     function _getOracleQuote(uint256 amount) private view returns (uint256) {
+        // @audit-high this is very easy to manipulate price, specially with low liquidity
         (uint256 reservesWETH, uint256 reservesToken) =
             UniswapV2Library.getReserves({factory: _uniswapFactory, tokenA: address(_weth), tokenB: address(_token)});
 
