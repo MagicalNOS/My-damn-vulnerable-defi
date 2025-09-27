@@ -38,6 +38,7 @@ contract FreeRiderNFTMarketplace is ReentrancyGuard {
         token = _token;
     }
 
+    // @note user can offer same NFTs in a list and the function leak a mechanism to judge the duplicated NFTs.
     function offerMany(uint256[] calldata tokenIds, uint256[] calldata prices) external nonReentrant {
         uint256 amount = tokenIds.length;
         if (amount == 0) {
@@ -74,6 +75,7 @@ contract FreeRiderNFTMarketplace is ReentrancyGuard {
 
         assembly {
             // gas savings
+            // @note equal to `offersCount++`
             sstore(0x02, add(sload(0x02), 0x01))
         }
 
@@ -93,7 +95,8 @@ contract FreeRiderNFTMarketplace is ReentrancyGuard {
         if (priceToPay == 0) {
             revert TokenNotOffered(tokenId);
         }
-
+        // @audit-high the priceToPay is all nft bought want to pay instead of a nft, it will cause
+        // the smart contract lose funds.
         if (msg.value < priceToPay) {
             revert InsufficientPayment();
         }
@@ -102,13 +105,11 @@ contract FreeRiderNFTMarketplace is ReentrancyGuard {
 
         // transfer from seller to buyer
         DamnValuableNFT _token = token; // cache for gas savings
+        // @note this can implement onERC721Received()
+        // @audit-high the money should pay to the seller, not the owner of the NFT now
         _token.safeTransferFrom(_token.ownerOf(tokenId), msg.sender, tokenId);
-
-        // pay seller using cached token
         payable(_token.ownerOf(tokenId)).sendValue(priceToPay);
 
         emit NFTBought(msg.sender, tokenId, priceToPay);
     }
-
-    receive() external payable {}
 }

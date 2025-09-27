@@ -58,7 +58,6 @@ contract FreeRiderRecoveryManager is ReentrancyGuard, IERC721Receiver {
             address recipient = abi.decode(_data, (address));
             payable(recipient).sendValue(bounty);
         }
-
         return IERC721Receiver.onERC721Received.selector;
     }
 }
