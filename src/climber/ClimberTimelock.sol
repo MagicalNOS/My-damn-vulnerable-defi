@@ -88,6 +88,8 @@ contract ClimberTimelock is ClimberTimelockBase {
         bytes32 id = getOperationId(targets, values, dataElements, salt);
 
         for (uint8 i = 0; i < targets.length; ++i) {
+            // @audit-high Malicious can manipulate the call to upgrade the vault implementation
+            // @audit-high Malicious can grant themselves the PROPOSER_ROLE role and schedule a new operation
             targets[i].functionCallWithValue(dataElements[i], values[i]);
         }
 
