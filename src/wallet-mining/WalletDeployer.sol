@@ -12,6 +12,7 @@ import {SafeProxyFactory} from "@safe-global/safe-smart-account/contracts/proxie
  */
 contract WalletDeployer {
     // Addresses of a Safe factory and copy on this chain
+    // @notice the immutable store in the bytecode instead of slot
     SafeProxyFactory public immutable cook;
     address public immutable cpy;
 
@@ -19,6 +20,7 @@ contract WalletDeployer {
     address public immutable chief;
     address public immutable gem;
 
+    // this is slot 0
     address public mom;
     address public hat;
 

@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 contract AuthorizerUpgradeable {
+    // @audit-high the slot is never reused after init, becasue the slot0 in the proxy is non-zero
     uint256 public needsInit = 1;
     mapping(address => mapping(address => uint256)) private wards;
 
